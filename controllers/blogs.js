@@ -7,7 +7,7 @@ blogsRouter.get('/', (req, res) => {
 })
 
 // Posteando un nuevo blog
-blogsRouter.post('/', (req, res) => {
+blogsRouter.post('/', (req, res, next) => {
     const body = req.body
     if (!body.title || !body.url) {
         return res.status(400).json({ error: 'Title or url missing.' })
