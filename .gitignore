@@ -1,0 +1,6 @@
+// directorios
+node_modules/
+requests/
+
+// archivos
+.env
