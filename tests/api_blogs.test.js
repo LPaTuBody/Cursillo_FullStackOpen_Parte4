@@ -8,13 +8,10 @@ const api = supertest(app)
 
 const Blog = require('../models/blog')
 
-describe('API Blogs Tests', () => {
+describe('API Blogs Tests)', () => {
     beforeEach(async () => {
         await Blog.deleteMany({})
-        for (const b of helper.initBlogs) {
-            let blogObject = new Blog(b)
-            await blogObject.save()
-        }
+        await Blog.insertMany(helper.initBlogs)
     })
 
     test('GET /api/blogs returns all blogs', async () => {
@@ -38,90 +35,141 @@ describe('API Blogs Tests', () => {
         })
     })
 
-    test('POST /api/blogs creates a new blog', async () => {
-        const dbBefore = await helper.blogsInDB()
+    describe('Blog Creation Tests', () => {
+        test('POST creates a new blog with valid data', async () => {
+            const dbBefore = await helper.blogsInDB()
 
-        const newBlog = {
-            title: "Ejemplificando el ejemplo",
-            author: "E. Charles White",
-            url: "https://techwhispersdaily.net",
-            likes: 56527
-        }
+            const newBlog = {
+                title: "Ejemplificando el ejemplo",
+                author: "E. Charles White",
+                url: "https://techwhispersdaily.net",
+                likes: 56527
+            }
 
-        const response = await api
-        .post('/api/blogs')
-        .send(newBlog)
-        .expect(201)
-        .expect('Content-Type', /application\/json/)
+            const response = await api
+            .post('/api/blogs')
+            .send(newBlog)
+            .expect(201)
+            .expect('Content-Type', /application\/json/)
 
-        const { id, ...rest } = response.body
-        assert.deepStrictEqual(rest, newBlog)
+            const { id, ...rest } = response.body
+            assert.deepStrictEqual(rest, newBlog)
 
-        const dbAfter = await helper.blogsInDB()
-        assert.strictEqual(dbAfter.length, dbBefore.length + 1)
+            const dbAfter = await helper.blogsInDB()
+            assert.strictEqual(dbAfter.length, dbBefore.length + 1)
+        })
+
+        test('POST sets "likes" to 0 if not provided', async () => {
+            const noLikesBlog = {
+                title: "Sin likes, 0 resulta",
+                author: "John Doe",
+                url: "https://nolikesneeded.com"
+            }
+
+            const response = await api
+            .post('/api/blogs')
+            .send(noLikesBlog)
+            .expect(201)
+            .expect('Content-Type', /application\/json/)
+
+            assert.strictEqual(response.body.likes, 0)
+            assert.strictEqual(response.body.title, noLikesBlog.title)
+        })
+
+        test('POST requires "title" and "url" fields', async () => {
+            // Test for missing title
+            const noTitleBlog = {
+                author: "Jane Doe",
+                url: "https://notitle.com",
+            }
+
+            const resNoTitle = await api
+            .post('/api/blogs')
+            .send(noTitleBlog)
+            .expect(400)
+            .expect('Content-Type', /application\/json/)
+
+            assert.strictEqual(resNoTitle.body.error.includes('Title is required'), true)
+
+            // Test for missing URL
+            const noUrlBlog = {
+                title: "No URL provided",
+                author: "Jane Doe"
+            }
+
+            const resNoUrl = await api
+            .post('/api/blogs')
+            .send(noUrlBlog)
+            .expect(400)
+            .expect('Content-Type', /application\/json/)
+
+            assert.strictEqual(resNoUrl.body.error.includes('URL is required'), true)
+        })
     })
 
-    test('POST /api/blogs sets "likes" to 0 if not provided', async () => {
-        // Test for missing likes 
-        const noLikesBlog = {
-            title: "Sin likes, 0 resulta",
-            author: "John Doe",
-            url: "https://nolikesneeded.com"
-        }
+    describe('Blog Deletion Tests', () => {
+        test('DELETE removes a blog by ID', async () => {
+            const dbBefore = await helper.blogsInDB()
+            const blogToDelete = dbBefore[0]
 
-        const response = await api
-        .post('/api/blogs')
-        .send(noLikesBlog)
-        .expect(201)
-        .expect('Content-Type', /application\/json/)
+            await api
+            .delete(`/api/blogs/${blogToDelete.id}`)
+            .expect(204)
 
-        assert.strictEqual(response.body.likes, 0)
+            const dbAfter = await helper.blogsInDB()
+            assert.strictEqual(dbAfter.length, dbBefore.length - 1)
+            assert.strictEqual(dbAfter.find(b => b.id === blogToDelete.id), undefined)
+        })
 
-        // Test for likes provided
-        const withLikes = {
-            ...noLikesBlog,
-            title: "Con likes, pues pon los likes",
-            likes: 16
-        }
+        test('DELETE returns 404 for non-existent blog ID', async () => {
+            const id = await helper.nonExistingId()  // new mongoose.Types.ObjectId()
+            await api
+            .delete(`/api/blogs/${id}`)
+            .expect(404)
+        })
 
-        const responseWithLikes = await api
-        .post('/api/blogs')
-        .send(withLikes)
-        .expect(201)
-        .expect('Content-Type', /application\/json/)
-
-        assert.strictEqual(responseWithLikes.body.likes, withLikes.likes)
+        test('DELETE returns 400 for invalid ID format', async () => {
+            await api
+            .delete(`/api/blogs/${77777777}`)
+            .expect(400)
+        })
     })
 
-    test('POST /api/blogs requires "title" and "url" fields', async () => {
-        // Test for missing title
-        const noTitleBlog = {
-            author: "Jane Doe",
-            url: "https://notitle.com",
-            likes: 42
-        }
+    describe('Blog Update Tests', () => {
+        test('PUT updates a blog by ID', async () => {
+            const dbBefore = await helper.blogsInDB()
+            const updatedBlog = {...dbBefore[0], author: "E. Charles White" }
 
-        const resNoTitle = await api
-        .post('/api/blogs')
-        .send(noTitleBlog)
-        .expect(400)
-        .expect('Content-Type', /application\/json/)
+            const response = await api
+            .put(`/api/blogs/${updatedBlog.id}`)
+            .send(updatedBlog)
+            .expect(200)
+            .expect('Content-Type', /application\/json/)
 
-        assert.strictEqual(resNoTitle.body.error.includes('Title is required'), true)
+            assert.deepStrictEqual(response.body, updatedBlog)
 
-        // Test for missing URL
-        const noUrlBlog = {
-            title: "No URL provided",
-            author: "Jane Doe"
-        }
+            const dbAfter = await helper.blogsInDB()
+            assert.strictEqual(dbAfter.length, dbBefore.length)
+        })
 
-        const resNoUrl = await api
-        .post('/api/blogs')
-        .send(noUrlBlog)
-        .expect(400)
-        .expect('Content-Type', /application\/json/)
+        test('PUT returns 404 for non-existent blog ID', async () => {
+            const id = await helper.nonExistingId()
+            const updatedBlog = { title: "I'm not real, lol", url: "https://nowhere.com" }
 
-        assert.strictEqual(resNoUrl.body.error.includes('URL is required'), true)
+            await api
+            .put(`/api/blogs/${id}`)
+            .send(updatedBlog)
+            .expect(404)
+        })
+
+        test('PUT returns 400 for invalid ID format', async () => {
+            const updatedBlog = { title: "Who says 77777777 is invalid?", url: "https://invalid.com" }
+
+            await api
+            .put(`/api/blogs/${77777777}`)
+            .send(updatedBlog)
+            .expect(400)
+        })
     })
 
     after(() => {

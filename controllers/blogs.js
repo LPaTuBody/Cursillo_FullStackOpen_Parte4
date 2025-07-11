@@ -8,6 +8,12 @@ blogsRouter.get('/', wrapper(async(req, res) => {
     res.json(blogs)
 }))
 
+// Obteniendo un blog por su ID
+blogsRouter.get('/:id', wrapper(async (req, res) => {
+    const blog = await Blog.findById(req.params.id)
+    blog ? res.json(blog) : res.status(404).end()
+}))
+
 // Posteando un nuevo blog
 blogsRouter.post('/', wrapper(async(req, res) => {
     const body = req.body
@@ -23,18 +29,19 @@ blogsRouter.post('/', wrapper(async(req, res) => {
 
 // Actualizando un blog por su ID
 blogsRouter.put('/:id', wrapper(async(req, res) => {
+    const { title, author, url, likes } = req.body
     const updBlog = await Blog.findByIdAndUpdate(
         req.params.id,
-        req.body,
+        { title, author, url, likes },
         { new: true, runValidators: true, context: 'query' }
     )
-    res.json(updBlog)
+    updBlog ? res.json(updBlog) : res.status(404).end()
 }))
 
 // Eliminando un blog por su ID
 blogsRouter.delete('/:id', wrapper(async(req, res) => {
-    await Blog.findByIdAndDelete(req.params.id)
-    res.status(204).end()
+    const deleted = await Blog.findByIdAndDelete(req.params.id)
+    deleted ? res.status(204).end() : res.status(404).end()
 }))
 
 module.exports = blogsRouter

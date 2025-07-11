@@ -26,4 +26,12 @@ const blogsInDB = async () => {
     return blogs.map(blog => blog.toJSON())
 }
 
-module.exports = { initBlogs, blogsInDB }
+const nonExistingId = async () => {
+  const blog = new Blog({ title: 'equisde', url: 'https://unsitio.com' })
+  await blog.save()
+  await blog.deleteOne()
+
+  return blog._id.toString()
+} 
+
+module.exports = { initBlogs, blogsInDB, nonExistingId }
