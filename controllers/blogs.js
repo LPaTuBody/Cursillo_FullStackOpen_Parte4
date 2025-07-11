@@ -21,4 +21,20 @@ blogsRouter.post('/', wrapper(async(req, res) => {
     res.status(201).json(result)
 }))
 
+// Actualizando un blog por su ID
+blogsRouter.put('/:id', wrapper(async(req, res) => {
+    const updBlog = await Blog.findByIdAndUpdate(
+        req.params.id,
+        req.body,
+        { new: true, runValidators: true, context: 'query' }
+    )
+    res.json(updBlog)
+}))
+
+// Eliminando un blog por su ID
+blogsRouter.delete('/:id', wrapper(async(req, res) => {
+    await Blog.findByIdAndDelete(req.params.id)
+    res.status(204).end()
+}))
+
 module.exports = blogsRouter
