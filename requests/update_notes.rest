@@ -1,0 +1,8 @@
+PUT http://localhost:3001/api/notes/68655346b2b411aea26b08cb
+Content-Type: application/json
+
+{
+    "content": "Linux >>>>> Windows",
+    "important": true,
+    "userId": "687585d74b527d67f738eb3b"
+}
