@@ -1,0 +1,10 @@
+### Posting a new blog
+POST http://localhost:3003/api/blogs
+Content-Type: application/json
+
+{
+  "title": "Ejemplificando el ejemplo",
+  "author": "",
+  "url": "http://example.com/new-blog-post",
+  "likes": 5
+}

@@ -1,6 +1,6 @@
 // directorios
 node_modules/
-requests/
+dist/
 
 // archivos
 .env

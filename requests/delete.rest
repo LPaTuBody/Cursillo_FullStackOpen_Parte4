@@ -1,0 +1,5 @@
+### Delete a blog post with malformed id
+DELETE http://localhost:3003/api/blogs/6871787b97c4
+
+### Delete a blog post with non-existing id
+DELETE http://localhost:3003/api/blogs/687184867afba26bd2b7621c
