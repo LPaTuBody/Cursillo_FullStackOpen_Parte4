@@ -4,8 +4,10 @@ const mongoose = require('mongoose')
 const config = require('./utils/config.js')
 const logger = require('./utils/logger.js')
 const middleware = require('./utils/middleware.js')
-const blogsRouter = require('./controllers/blogs.js')
 const app = express()
+
+const blogsRouter = require('./controllers/blogs.js')
+const usersRouter = require('./controllers/users.js')
 
 // Database connection
 mongoose.set('strictQuery', false)
@@ -24,6 +26,7 @@ app.use(cors())
 app.use(middleware.reqLogger)
 
 app.use('/api/blogs', blogsRouter)
+app.use('/api/users', usersRouter)
 
 app.use(middleware.unknownEndpoint)
 app.use(middleware.errorHandler)

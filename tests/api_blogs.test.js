@@ -1,12 +1,14 @@
 const { test, describe, beforeEach, after } = require('node:test')
 const assert = require('node:assert')
 const mongoose = require('mongoose')
+const bcrypt = require('bcryptjs')
 const supertest = require('supertest')
 const helper = require('./test_helper.js')
 const app = require('../app')
 const api = supertest(app)
 
-const Blog = require('../models/blog')
+const Blog = require('../models/blog.js')
+const User = require('../models/user.js')
 
 describe('API Blogs Tests)', () => {
     beforeEach(async () => {
@@ -121,14 +123,14 @@ describe('API Blogs Tests)', () => {
             assert.strictEqual(dbAfter.find(b => b.id === blogToDelete.id), undefined)
         })
 
-        test('DELETE returns 404 for non-existent blog ID', async () => {
+        test('Status 404 is returned for a non-existent blog ID', async () => {
             const id = await helper.nonExistingId()  // new mongoose.Types.ObjectId()
             await api
             .delete(`/api/blogs/${id}`)
             .expect(404)
         })
 
-        test('DELETE returns 400 for invalid ID format', async () => {
+        test('Status 400 is returned for an invalid ID format', async () => {
             await api
             .delete(`/api/blogs/${77777777}`)
             .expect(400)
@@ -138,7 +140,7 @@ describe('API Blogs Tests)', () => {
     describe('Blog Update Tests', () => {
         test('PUT updates a blog by ID', async () => {
             const dbBefore = await helper.blogsInDB()
-            const updatedBlog = {...dbBefore[0], author: "E. Charles White" }
+            const updatedBlog = { ...dbBefore[0], author: "E. Charles White" }
 
             const response = await api
             .put(`/api/blogs/${updatedBlog.id}`)
@@ -152,7 +154,7 @@ describe('API Blogs Tests)', () => {
             assert.strictEqual(dbAfter.length, dbBefore.length)
         })
 
-        test('PUT returns 404 for non-existent blog ID', async () => {
+        test('Status 404 is returned for a non-existent blog ID', async () => {
             const id = await helper.nonExistingId()
             const updatedBlog = { title: "I'm not real, lol", url: "https://nowhere.com" }
 
@@ -162,7 +164,7 @@ describe('API Blogs Tests)', () => {
             .expect(404)
         })
 
-        test('PUT returns 400 for invalid ID format', async () => {
+        test('Status 400 is returned for an invalid ID format', async () => {
             const updatedBlog = { title: "Who says 77777777 is invalid?", url: "https://invalid.com" }
 
             await api
@@ -171,8 +173,88 @@ describe('API Blogs Tests)', () => {
             .expect(400)
         })
     })
+})
 
-    after(() => {
-        mongoose.connection.close()
+describe('API Users Tests', () => {
+    beforeEach(async () => {
+        await User.deleteMany({})
+
+        const pwdHash = await bcrypt.hash('sikret', 10)
+        const user = new User({
+            username: 'cute_user',
+            name: 'E. Charles White',
+            password: pwdHash
+        })
+
+        await user.save()
+    })
+
+    test('POST creates a new user with valid data', async () => {
+        const usersBefore = await helper.usersInDB()
+
+        const newUser = {
+            username: 'someValidUsername_idk',
+            name: 'Zoila Masa K.',
+            password: 'abduzcan'
+        }
+
+        await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(201)
+        .expect('Content-Type', /application\/json/)
+
+        const usersAfter = await helper.usersInDB()
+        assert.strictEqual(usersAfter.length, usersBefore.length + 1)
+
+        const usernames = usersAfter.map(u => u.username)
+        assert(usernames.includes(newUser.username))
+    })
+
+    test('Status 400 is returned for invalid data', async () => {
+        const usersBefore = await helper.usersInDB()
+
+        const newUser = {
+            username: 'A',
+            name: 'Fulano',
+            password: 'oo'
+        }
+
+        await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+        .expect('Content-Type', /application\/json/)
+
+        const usersAfter = await helper.usersInDB()
+        assert.strictEqual(usersAfter.length, usersBefore.length)
+    })
+
+    test('Status 400 and proper message are returned if username already taken', async () => {
+        const usersBefore = await helper.usersInDB()
+
+        const newUser = {
+            username: 'cute_user',
+            password: 'some_password',
+        }
+
+        const resp = await api
+        .post('/api/users')
+        .send(newUser)
+        .expect(400)
+        .expect('Content-Type', /application\/json/)
+
+        assert(resp.body.error.includes('username must be unique'))
+
+        const usersAfter = await helper.usersInDB()
+        assert.strictEqual(usersAfter.length, usersBefore.length)
     })
 })
+
+after(() => {
+    mongoose.connection.close()
+})
+
+/* 
+test('', async () => {})
+*/

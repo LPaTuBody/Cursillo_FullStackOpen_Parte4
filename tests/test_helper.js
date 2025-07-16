@@ -1,4 +1,5 @@
 const Blog = require('../models/blog')
+const User = require('../models/user')
 
 const initBlogs = [
     {
@@ -26,12 +27,17 @@ const blogsInDB = async () => {
     return blogs.map(blog => blog.toJSON())
 }
 
+const usersInDB = async () => {
+    const users = await User.find({})
+    return users.map(user => user.toJSON())
+}
+
 const nonExistingId = async () => {
   const blog = new Blog({ title: 'equisde', url: 'https://unsitio.com' })
   await blog.save()
   await blog.deleteOne()
 
   return blog._id.toString()
-} 
+}
 
-module.exports = { initBlogs, blogsInDB, nonExistingId }
+module.exports = { initBlogs, blogsInDB, nonExistingId, usersInDB }
