@@ -22,7 +22,7 @@ Content-Type: application/json
 ### Posting a new blog with user token
 POST http://localhost:3003/api/blogs
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IlNhaW1vblNlaXoiLCJpZCI6IjY4NzZkNmUzMTM2MWMwZGQ5ZGIxYjk1ZiIsImlhdCI6MTc1MjYyNzg1MywiZXhwIjoxNzUyNjM1MDUzfQ.QFHwUTkDuEDYDjtlD5qAh2g4LLFnP7eWr3Gq3ddR6fc
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IndlbGVfbWlsYW5hIiwiaWQiOiI2ODc2YzhiMTkyYWJjODYzN2IyMzRjOTkiLCJpYXQiOjE3NTI2NzAxNzYsImV4cCI6MTc1MjY3NzM3Nn0.FPXyaX3QBwH1ejE_wtTOaStYXEh9k7jWrsl58Fn0dto
 
 {
   "title": "Ejemplificando el ejemplo",

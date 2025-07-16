@@ -2,7 +2,6 @@ const blogsRouter = require('express').Router()
 const Blog = require('../models/blog.js')
 const User = require('../models/user.js')
 const wrapper = require('../utils/async_wrapper.js')
-const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 require('dotenv').config()
 
@@ -21,11 +20,7 @@ blogsRouter.get('/:id', wrapper(async (req, res) => {
 // Posteando un nuevo blog
 blogsRouter.post('/', wrapper(async(req, res) => {
     const body = req.body
-    const decodedToken = jwt.verify(req.token, process.env.SECRET)
-    if (!decodedToken.id) {
-        return res.status(401).json({ error: 'Token invalid' })
-    }
-    const user = await User.findById(decodedToken.id)
+    const user = await User.findById(req.user.id)
 
     const blog = new Blog({
         title: body.title.trim(),
@@ -54,7 +49,15 @@ blogsRouter.put('/:id', wrapper(async(req, res) => {
 
 // Eliminando un blog por su ID
 blogsRouter.delete('/:id', wrapper(async(req, res) => {
-    const deleted = await Blog.findByIdAndDelete(req.params.id)
+    const delBlog = await Blog.findById(req.params.id)
+    if (!delBlog) {
+        return res.status(400).json({ error: "Blog doesn't exist" })
+    }
+    
+    const deleted = req.user.id === delBlog.user.toString()
+    ? await Blog.findByIdAndDelete(req.params.id)
+    : res.status(403).json({ error: 'Unauthorized user' })
+
     deleted ? res.status(204).end() : res.status(404).end()
 }))
 
