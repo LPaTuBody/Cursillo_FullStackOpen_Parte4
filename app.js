@@ -8,6 +8,7 @@ const app = express()
 
 const blogsRouter = require('./controllers/blogs.js')
 const usersRouter = require('./controllers/users.js')
+const loginRouter = require('./controllers/login.js')
 
 // Database connection
 mongoose.set('strictQuery', false)
@@ -25,6 +26,7 @@ app.use(express.json())
 app.use(cors())
 app.use(middleware.reqLogger)
 
+app.use('/api/login', loginRouter)
 app.use('/api/blogs', blogsRouter)
 app.use('/api/users', usersRouter)
 

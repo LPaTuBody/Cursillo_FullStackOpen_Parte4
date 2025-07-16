@@ -18,3 +18,15 @@ Content-Type: application/json
   "name": "Rudy Simón",
   "password": "awebo"
 }
+
+### Posting a new blog with user token
+POST http://localhost:3003/api/blogs
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IlNhaW1vblNlaXoiLCJpZCI6IjY4NzZkNmUzMTM2MWMwZGQ5ZGIxYjk1ZiIsImlhdCI6MTc1MjYyNzg1MywiZXhwIjoxNzUyNjM1MDUzfQ.QFHwUTkDuEDYDjtlD5qAh2g4LLFnP7eWr3Gq3ddR6fc
+
+{
+  "title": "Ejemplificando el ejemplo",
+  "author": "",
+  "url": "http://example.com/new-blog-post",
+  "likes": 5
+}

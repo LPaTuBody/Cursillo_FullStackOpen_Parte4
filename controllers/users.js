@@ -1,12 +1,12 @@
 const usersRouter = require('express').Router()
+const bcrypt = require('bcryptjs')
 const User = require('../models/user.js')
 const wrapper = require('../utils/async_wrapper.js')
-const bcrypt = require('bcryptjs')
 
 usersRouter.get('/', wrapper(async (req, res) => {
     const users = await User.find({})
     .populate('blogs', { title: 1, author: 1, url: 1, likes: 1 })
-    
+
     res.json(users)
 }))
 

@@ -2,6 +2,16 @@ const blogsRouter = require('express').Router()
 const Blog = require('../models/blog.js')
 const User = require('../models/user.js')
 const wrapper = require('../utils/async_wrapper.js')
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
+require('dotenv').config()
+
+// Sacando el token del encabezado
+const getToken = (request) => {
+    const authorization = request.get('authorization')
+    return authorization && authorization.startsWith('Bearer ')
+    ? authorization.replace('Bearer ', '') : null
+}
 
 // Obteniendo todos los blogs
 blogsRouter.get('/', wrapper(async(req, res) => {
@@ -18,15 +28,17 @@ blogsRouter.get('/:id', wrapper(async (req, res) => {
 // Posteando un nuevo blog
 blogsRouter.post('/', wrapper(async(req, res) => {
     const body = req.body
-    // const user = await User.findById(body.userID)
-    const users = await User.find({})
-    const user = users[Math.floor(Math.random() * 3)]
+    const decodedToken = jwt.verify(getToken(req), process.env.SECRET)
+    if (!decodedToken.id) {
+        return res.status(401).json({ error: 'Token invalid' })
+    }
+    const user = await User.findById(decodedToken.id)
 
     const blog = new Blog({
         title: body.title.trim(),
         author: body.author.trim() || 'Unknown',
         url: body.url.trim(),
-        likes: body.likes.trim() || 0,
+        likes: body.likes || 0,
         user: user._id
     })
 
