@@ -10,10 +10,13 @@ const api = supertest(app)
 const Blog = require('../models/blog.js')
 const User = require('../models/user.js')
 
-describe('API Blogs Tests)', () => {
+describe('API Blogs Tests', () => {
     beforeEach(async () => {
         await Blog.deleteMany({})
-        await Blog.insertMany(helper.initBlogs)
+        const user = await helper.decodedTUL()
+        await Blog.insertMany(helper.initBlogs.map(blog => {
+            return { ...blog, user: user.id }
+        }))
     })
 
     test('GET /api/blogs returns all blogs', async () => {
@@ -40,6 +43,8 @@ describe('API Blogs Tests)', () => {
     describe('Blog Creation Tests', () => {
         test('POST creates a new blog with valid data', async () => {
             const dbBefore = await helper.blogsInDB()
+            const token = await helper.tokenUserLoged()
+            const user = await helper.decodedTUL()
 
             const newBlog = {
                 title: "Ejemplificando el ejemplo",
@@ -50,18 +55,21 @@ describe('API Blogs Tests)', () => {
 
             const response = await api
             .post('/api/blogs')
+            .set('Authorization', `Bearer ${token}`)
             .send(newBlog)
             .expect(201)
             .expect('Content-Type', /application\/json/)
 
             const { id, ...rest } = response.body
-            assert.deepStrictEqual(rest, newBlog)
+            assert.deepStrictEqual(rest, { ...newBlog, user: user.id })
 
             const dbAfter = await helper.blogsInDB()
             assert.strictEqual(dbAfter.length, dbBefore.length + 1)
         })
 
         test('POST sets "likes" to 0 if not provided', async () => {
+            const token = await helper.tokenUserLoged()
+
             const noLikesBlog = {
                 title: "Sin likes, 0 resulta",
                 author: "John Doe",
@@ -70,6 +78,7 @@ describe('API Blogs Tests)', () => {
 
             const response = await api
             .post('/api/blogs')
+            .set('Authorization', `Bearer ${token}`)
             .send(noLikesBlog)
             .expect(201)
             .expect('Content-Type', /application\/json/)
@@ -79,6 +88,8 @@ describe('API Blogs Tests)', () => {
         })
 
         test('POST requires "title" and "url" fields', async () => {
+            const token = await helper.tokenUserLoged()
+
             // Test for missing title
             const noTitleBlog = {
                 author: "Jane Doe",
@@ -87,6 +98,7 @@ describe('API Blogs Tests)', () => {
 
             const resNoTitle = await api
             .post('/api/blogs')
+            .set('Authorization', `Bearer ${token}`)
             .send(noTitleBlog)
             .expect(400)
             .expect('Content-Type', /application\/json/)
@@ -101,6 +113,7 @@ describe('API Blogs Tests)', () => {
 
             const resNoUrl = await api
             .post('/api/blogs')
+            .set('Authorization', `Bearer ${token}`)
             .send(noUrlBlog)
             .expect(400)
             .expect('Content-Type', /application\/json/)
@@ -111,11 +124,13 @@ describe('API Blogs Tests)', () => {
 
     describe('Blog Deletion Tests', () => {
         test('DELETE removes a blog by ID', async () => {
+            const token = await helper.tokenUserLoged()
             const dbBefore = await helper.blogsInDB()
             const blogToDelete = dbBefore[0]
 
             await api
             .delete(`/api/blogs/${blogToDelete.id}`)
+            .set('Authorization', `Bearer ${token}`)
             .expect(204)
 
             const dbAfter = await helper.blogsInDB()
@@ -124,16 +139,57 @@ describe('API Blogs Tests)', () => {
         })
 
         test('Status 404 is returned for a non-existent blog ID', async () => {
-            const id = await helper.nonExistingId()  // new mongoose.Types.ObjectId()
+            const token = await helper.tokenUserLoged()
+            const id = await helper.nonExistingBlogId()  // new mongoose.Types.ObjectId()
+
             await api
             .delete(`/api/blogs/${id}`)
+            .set('Authorization', `Bearer ${token}`)
             .expect(404)
         })
 
         test('Status 400 is returned for an invalid ID format', async () => {
+            const token = await helper.tokenUserLoged()
+
             await api
-            .delete(`/api/blogs/${77777777}`)
+            .delete('/api/blogs/77777777')
+            .set('Authorization', `Bearer ${token}`)
             .expect(400)
+        })
+
+        test('Status 401 is returned if no valid token is provided', async () => {
+            const dbBefore = await helper.blogsInDB()
+            const blogToDelete = dbBefore[0]
+            const expiredTUL = await helper.expiredTUL()
+            await helper.sleep(1500)
+            
+            // No token provided
+            await api
+            .delete(`/api/blogs/${blogToDelete.id}`)
+            .expect(401)
+
+            // Invalid token
+            await api
+            .delete(`/api/blogs/${blogToDelete.id}`)
+            .set('Authorization', 'Bearer 4702075')
+            .expect(401)
+
+            // Expired token
+            await api
+            .delete(`/api/blogs/${blogToDelete.id}`)
+            .set('Authorization', `Bearer ${expiredTUL}`)
+            .expect(401)
+        })
+
+        test('Status 403 is returned if an user is unauthorized to delete', async () => {
+            const dbBefore = await helper.blogsInDB()
+            const blogToDelete = dbBefore[0]
+            const tokenUUL = await helper.tokenUnauthUL()
+
+            await api
+            .delete(`/api/blogs/${blogToDelete.id}`)
+            .set('Authorization', `Bearer ${tokenUUL}`)
+            .expect(403)
         })
     })
 
@@ -148,14 +204,17 @@ describe('API Blogs Tests)', () => {
             .expect(200)
             .expect('Content-Type', /application\/json/)
 
-            assert.deepStrictEqual(response.body, updatedBlog)
+            assert.deepStrictEqual(response.body, {
+                ...updatedBlog,
+                user: updatedBlog.user.toString()
+            })
 
             const dbAfter = await helper.blogsInDB()
             assert.strictEqual(dbAfter.length, dbBefore.length)
         })
 
         test('Status 404 is returned for a non-existent blog ID', async () => {
-            const id = await helper.nonExistingId()
+            const id = await helper.nonExistingBlogId()
             const updatedBlog = { title: "I'm not real, lol", url: "https://nowhere.com" }
 
             await api
@@ -168,7 +227,7 @@ describe('API Blogs Tests)', () => {
             const updatedBlog = { title: "Who says 77777777 is invalid?", url: "https://invalid.com" }
 
             await api
-            .put(`/api/blogs/${77777777}`)
+            .put('/api/blogs/77777777')
             .send(updatedBlog)
             .expect(400)
         })
@@ -179,82 +238,109 @@ describe('API Users Tests', () => {
     beforeEach(async () => {
         await User.deleteMany({})
 
-        const pwdHash = await bcrypt.hash('sikret', 10)
-        const user = new User({
+        const pwdHash1 = await bcrypt.hash('sikret', 10)
+        const primUser = new User({
             username: 'cute_user',
             name: 'E. Charles White',
-            password: pwdHash
+            password: pwdHash1
+        })
+        await primUser.save()
+
+        const pwdHash2 = await bcrypt.hash('victoriA', 10)
+        const secUser = new User({
+            username: 'random_user',
+            name: 'Sharon Baraja Tullido',
+            password: pwdHash2
+        })
+        await secUser.save()
+    })
+
+    test('toJSON replaces the "_id" property with the "id" one', async () => {
+        const response = await api.get('/api/users')
+        .expect(200)
+        .expect('Content-Type', /application\/json/)
+
+        response.body.forEach(user => {
+            Object.hasOwn(user, 'id') && !Object.hasOwn(user, '_id')
+            ? assert.ok(true)
+            : assert.fail('User object does not have "id" or still has "_id"')
+        })
+    })
+
+    test('toJSON delete the "passwordHash" property', async () => {
+        const response = await api.get('/api/users')
+        .expect(200)
+        .expect('Content-Type', /application\/json/)
+
+        response.body.forEach(user => {
+            !Object.hasOwn(user, 'passwordHash')
+            ? assert.ok(true)
+            : assert.fail('User still has "passwordHash"')
+        })
+    })
+
+    describe('Creating new users', () => {
+        test('POST creates a new user with valid data', async () => {
+            const usersBefore = await helper.usersInDB()
+
+            const newUser = {
+                username: 'someValidUsername_idk',
+                name: 'Zoila Masa K.',
+                password: 'abduzcan'
+            }
+
+            await api
+            .post('/api/users')
+            .send(newUser)
+            .expect(201)
+            .expect('Content-Type', /application\/json/)
+
+            const usersAfter = await helper.usersInDB()
+            assert.strictEqual(usersAfter.length, usersBefore.length + 1)
+
+            const usernames = usersAfter.map(u => u.username)
+            assert(usernames.includes(newUser.username))
         })
 
-        await user.save()
-    })
+        test('Status 400 is returned for invalid data', async () => {
+            const usersBefore = await helper.usersInDB()
 
-    test('POST creates a new user with valid data', async () => {
-        const usersBefore = await helper.usersInDB()
+            const newUser = {
+                username: 'A',
+                name: 'Fulano',
+                password: 'oo'
+            }
 
-        const newUser = {
-            username: 'someValidUsername_idk',
-            name: 'Zoila Masa K.',
-            password: 'abduzcan'
-        }
+            await api
+            .post('/api/users')
+            .send(newUser)
+            .expect(400)
+            .expect('Content-Type', /application\/json/)
 
-        await api
-        .post('/api/users')
-        .send(newUser)
-        .expect(201)
-        .expect('Content-Type', /application\/json/)
+            const usersAfter = await helper.usersInDB()
+            assert.strictEqual(usersAfter.length, usersBefore.length)
+        })
 
-        const usersAfter = await helper.usersInDB()
-        assert.strictEqual(usersAfter.length, usersBefore.length + 1)
+        test('Status 400 and proper message are returned if username already taken', async () => {
+            const usersBefore = await helper.usersInDB()
 
-        const usernames = usersAfter.map(u => u.username)
-        assert(usernames.includes(newUser.username))
-    })
+            const newUser = {
+                username: 'cute_user',
+                password: 'some_password',
+            }
 
-    test('Status 400 is returned for invalid data', async () => {
-        const usersBefore = await helper.usersInDB()
+            const resp = await api
+            .post('/api/users')
+            .send(newUser)
+            .expect(400)
+            .expect('Content-Type', /application\/json/)
 
-        const newUser = {
-            username: 'A',
-            name: 'Fulano',
-            password: 'oo'
-        }
+            assert(resp.body.error.includes('Username must be unique'))
 
-        await api
-        .post('/api/users')
-        .send(newUser)
-        .expect(400)
-        .expect('Content-Type', /application\/json/)
-
-        const usersAfter = await helper.usersInDB()
-        assert.strictEqual(usersAfter.length, usersBefore.length)
-    })
-
-    test('Status 400 and proper message are returned if username already taken', async () => {
-        const usersBefore = await helper.usersInDB()
-
-        const newUser = {
-            username: 'cute_user',
-            password: 'some_password',
-        }
-
-        const resp = await api
-        .post('/api/users')
-        .send(newUser)
-        .expect(400)
-        .expect('Content-Type', /application\/json/)
-
-        assert(resp.body.error.includes('Username must be unique'))
-
-        const usersAfter = await helper.usersInDB()
-        assert.strictEqual(usersAfter.length, usersBefore.length)
+            const usersAfter = await helper.usersInDB()
+            assert.strictEqual(usersAfter.length, usersBefore.length)
+        })
     })
 })
 
-after(() => {
-    mongoose.connection.close()
-})
-
-/* 
-test('', async () => {})
-*/
+after(() => mongoose.connection.close())

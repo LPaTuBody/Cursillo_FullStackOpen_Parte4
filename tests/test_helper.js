@@ -1,5 +1,7 @@
 const Blog = require('../models/blog')
 const User = require('../models/user')
+const jwt = require('jsonwebtoken')
+require('dotenv').config()
 
 const initBlogs = [
     {
@@ -22,6 +24,7 @@ const initBlogs = [
     }
 ]
 
+// Relacionadas a la BD
 const blogsInDB = async () => {
     const blogs = await Blog.find({})
     return blogs.map(blog => blog.toJSON())
@@ -32,12 +35,63 @@ const usersInDB = async () => {
     return users.map(user => user.toJSON())
 }
 
-const nonExistingId = async () => {
-  const blog = new Blog({ title: 'equisde', url: 'https://unsitio.com' })
-  await blog.save()
-  await blog.deleteOne()
+const nonExistingBlogId = async () => {
+    const blog = new Blog({ title: 'equisde', url: 'https://unsitio.com' })
+    await blog.save()
+    await blog.deleteOne()
 
-  return blog._id.toString()
+    return blog._id.toString()
 }
 
-module.exports = { initBlogs, blogsInDB, nonExistingId, usersInDB }
+// Relacionadas a tokens
+const tokenUserLoged = async () => {
+    const user = await User.findOne({ username: 'cute_user' })
+    const token = jwt.sign(
+        {
+            username: user.username,
+            id: user._id,
+        },
+        process.env.SECRET
+    )
+    return token
+}
+
+const tokenUnauthUL = async () => {
+    const user = await User.findOne({ username: 'random_user' })
+    const token = jwt.sign(
+        {
+            username: user.username,
+            id: user._id,
+        },
+        process.env.SECRET
+    )
+    return token
+}
+
+const expiredTUL = async () => {
+    const user = await User.findOne({ username: 'cute_user' })
+    const token = jwt.sign(
+        {
+            username: user.username,
+            id: user._id,
+        },
+        process.env.SECRET,
+        { expiresIn: 1 }
+    )
+    return token
+}
+
+const decodedTUL = async () => {
+    const token = await tokenUserLoged()
+    return jwt.verify(token, process.env.SECRET)
+}
+
+// misceláneo
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+module.exports = {
+    initBlogs, blogsInDB, nonExistingBlogId, usersInDB, sleep,
+    tokenUserLoged, decodedTUL, tokenUnauthUL, expiredTUL
+}

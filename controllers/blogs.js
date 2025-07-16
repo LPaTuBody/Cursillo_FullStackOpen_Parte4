@@ -23,9 +23,9 @@ blogsRouter.post('/', wrapper(async(req, res) => {
     const user = await User.findById(req.user.id)
 
     const blog = new Blog({
-        title: body.title.trim(),
+        title: body.title ? body.title.trim() : null,
         author: body.author.trim() || 'Unknown',
-        url: body.url.trim(),
+        url: body.url ? body.url.trim() : null,
         likes: body.likes || 0,
         user: user._id
     })
@@ -51,7 +51,7 @@ blogsRouter.put('/:id', wrapper(async(req, res) => {
 blogsRouter.delete('/:id', wrapper(async(req, res) => {
     const delBlog = await Blog.findById(req.params.id)
     if (!delBlog) {
-        return res.status(400).json({ error: "Blog doesn't exist" })
+        return res.status(404).json({ error: "Blog doesn't exist" })
     }
     
     const deleted = req.user.id === delBlog.user.toString()
