@@ -6,13 +6,6 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 require('dotenv').config()
 
-// Sacando el token del encabezado
-const getToken = (request) => {
-    const authorization = request.get('authorization')
-    return authorization && authorization.startsWith('Bearer ')
-    ? authorization.replace('Bearer ', '') : null
-}
-
 // Obteniendo todos los blogs
 blogsRouter.get('/', wrapper(async(req, res) => {
     const blogs = await Blog.find({}).populate('user', { username: 1, name: 1 })
@@ -28,7 +21,7 @@ blogsRouter.get('/:id', wrapper(async (req, res) => {
 // Posteando un nuevo blog
 blogsRouter.post('/', wrapper(async(req, res) => {
     const body = req.body
-    const decodedToken = jwt.verify(getToken(req), process.env.SECRET)
+    const decodedToken = jwt.verify(req.token, process.env.SECRET)
     if (!decodedToken.id) {
         return res.status(401).json({ error: 'Token invalid' })
     }
